@@ -1,0 +1,5 @@
+# Fase 1: Chatbot básico con Claude API
+anthropic>=0.20.0
+
+# Para próximas fases
+mcp>=1.0.0

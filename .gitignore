@@ -1,0 +1,8 @@
+# Variables de entorno
+.env
+
+# Archivos de logs
+*.log
+
+# Sesiones guardadas
+session_*.json
