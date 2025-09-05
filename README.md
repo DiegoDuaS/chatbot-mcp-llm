@@ -20,7 +20,7 @@ The server maintains conversation context, logs all interactions, and controls h
 1. Clone this repository:
 
 ```bash
-git clone <tu-repo-url>
+git clone https://github.com/DiegoDuaS/chatbot-mcp-llm
 cd chatbot-mcp-llm
 ```
 
