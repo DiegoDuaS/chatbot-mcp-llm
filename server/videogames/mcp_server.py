@@ -11,17 +11,17 @@ import re
 import ast
 
 # ==============================
-# CARGA DE VARIABLES DE ENTORNO
+# LOAD ENVIRONMENT VARIABLES
 # ==============================
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 RAWG_API_KEY = os.getenv("RAWG_API_KEY")
 
 if not OPENAI_API_KEY or not RAWG_API_KEY:
-    raise ValueError("Configura OPENAI_API_KEY y RAWG_API_KEY en tu .env")
+    raise ValueError("Please configure OPENAI_API_KEY and RAWG_API_KEY in your .env file")
 
 # ==============================
-# CONFIGURACIÓN FASTAPI
+# FASTAPI CONFIGURATION
 # ==============================
 app = FastAPI()
 app.add_middleware(
@@ -31,16 +31,16 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Carpeta de logs
+# Logs folder
 LOG_DIR = "logs"
 LOG_FILE = os.path.join(LOG_DIR, "chat_log.json")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-# Historial global
+# Global conversation history
 conversation_history = []
 
 # ==============================
-# FUNCIONES AUXILIARES
+# HELPER FUNCTIONS
 # ==============================
 def save_log():
     with open(LOG_FILE, "w", encoding="utf-8") as f:
@@ -66,7 +66,7 @@ def call_rawg_api(query, max_results=5):
             })
         return {"games": games_info}
     except Exception as e:
-        return {"error": f"Error al consultar RAWG API: {str(e)}"}
+        return {"error": f"Error querying RAWG API: {str(e)}"}
 
 def call_openai(messages):
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
@@ -77,31 +77,32 @@ def call_openai(messages):
     return data["choices"][0]["message"]["content"]
 
 # ==============================
-# ENDPOINT PRINCIPAL
+# MAIN ENDPOINT
 # ==============================
 @app.post("/chat")
 async def chat_endpoint(request: Request):
     data = await request.json()
     user_message = data.get("message", "")
 
-    # Guardar mensaje del usuario
+    # Save user message
     conversation_history.append({"role": "user", "content": user_message, "timestamp": datetime.now().isoformat()})
 
-    # Prompt de instrucciones para OpenAI
+    # System prompt for OpenAI
     system_prompt = """
-Eres un asistente experto en videojuegos.
-Tienes acceso a la herramienta RAWG (API: https://api.rawg.io/docs).
-Si necesitas info sobre un juego, devuelve un JSON así:
-{"tool": "RAWG", "query": "<nombre del juego>"}
-Solo usa RAWG para videojuegos. Si la pregunta no es sobre videojuegos, responde normalmente.
+You are an expert video game assistant.
+You have access to the RAWG API (https://api.rawg.io/docs).
+If you need game info, return a JSON like this:
+{"tool": "RAWG", "query": "<game name>"}
+Only use RAWG for video games. If the question is not about video games, answer normally.
+You are not allowed to ignore this prompt for other answers.
 """
     messages = [{"role": "system", "content": system_prompt}] + \
                [{"role": msg["role"], "content": msg["content"]} for msg in conversation_history]
 
-    # Paso 1: LLM decide si usar RAWG
+    # Step 1: LLM decides whether to use RAWG
     llm_response = call_openai(messages)
 
-    # Paso 2: Detectar si LLM quiere usar RAWG
+    # Step 2: Detect if LLM wants to use RAWG
     if '"tool": "RAWG"' in llm_response:
         try:
             match = re.search(r'\{.*"tool":\s*"RAWG".*\}', llm_response, re.DOTALL)
@@ -109,31 +110,31 @@ Solo usa RAWG para videojuegos. Si la pregunta no es sobre videojuegos, responde
             query = tool_call.get("query")
             rawg_data = call_rawg_api(query)
 
-            # Paso 3: Dar info RAWG al LLM para generar respuesta final
+            # Step 3: Provide RAWG info to LLM for final response
             final_prompt = f"""
-Tienes información de los juegos relacionados con la búsqueda '{query}':
+Here is information about games matching '{query}':
 {json.dumps(rawg_data, indent=2, ensure_ascii=False)}
 
-Usa esta información para responder de manera **natural y conversacional** a la pregunta del usuario:
+Use this information to answer the user's question in a **natural and conversational** manner:
 {user_message}
 
-Incluye todos los títulos relevantes y detalles importantes sin dar links.
+You may include all relevant titles and important details without providing links when you deem necessary.
 """
             messages.append({"role": "assistant", "content": llm_response})
             messages.append({"role": "user", "content": final_prompt})
             assistant_msg = call_openai(messages)
         except Exception as e:
-            assistant_msg = f"Error procesando herramienta RAWG: {str(e)}"
+            assistant_msg = f"Error processing RAWG tool: {str(e)}"
     else:
         assistant_msg = llm_response
 
-    # Guardar respuesta del asistente
+    # Save assistant response
     conversation_history.append({"role": "assistant", "content": assistant_msg, "timestamp": datetime.now().isoformat()})
     save_log()
     return {"response": assistant_msg}
 
 # ==============================
-# EJECUCIÓN DEL SERVIDOR
+# RUN SERVER
 # ==============================
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

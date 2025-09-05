@@ -4,40 +4,40 @@ import requests
 SERVER_URL = "http://127.0.0.1:8000/chat"
 
 def main():
-    print("🤖 Chatbot de videojuegos (con RAWG + OpenAI)")
-    print("Comandos: /salir | /resumen")
+    print("🤖 Video Game Chatbot (with RAWG + OpenAI)")
+    print("Commands: /exit | /summary")
     conversation = []
 
     while True:
-        user_input = input("👤 Tú: ").strip()
-        if user_input.lower() == "/salir":
-            print("👋 Hasta luego!")
+        user_input = input("👤 You: ").strip()
+        if user_input.lower() == "/exit":
+            print("👋 Goodbye!")
             break
-        elif user_input.lower() == "/resumen":
+        elif user_input.lower() == "/summary":
             if not conversation:
-                print("No hay mensajes todavía.")
+                print("No messages yet.")
                 continue
-            print("\nÚltimos 5 mensajes:")
+            print("\nLast 5 messages:")
             for msg in conversation[-5:]:
-                role = "👤 Tú" if msg["role"] == "user" else "🤖 Asistente"
+                role = "👤 You" if msg["role"] == "user" else "🤖 Assistant"
                 print(f"{role}: {msg['content']}\n")
             continue
         elif not user_input:
             continue
 
-        # Guardar mensaje del usuario primero
+        # Save user message first
         conversation.append({"role": "user", "content": user_input})
 
         try:
-            print("🤔 Pensando...")
+            print("🤔 Thinking...")
             resp = requests.post(SERVER_URL, json={"message": user_input})
             resp.raise_for_status()
             data = resp.json()
-            assistant_msg = data.get("response", "No hubo respuesta del servidor.")
+            assistant_msg = data.get("response", "No response from the server.")
         except Exception as e:
-            assistant_msg = f"Error conectando con servidor: {str(e)}"
+            assistant_msg = f"Error connecting to server: {str(e)}"
 
-        # Guardar respuesta del asistente
+        # Save assistant's response
         conversation.append({"role": "assistant", "content": assistant_msg})
 
         print(f"🤖 {assistant_msg}\n")
