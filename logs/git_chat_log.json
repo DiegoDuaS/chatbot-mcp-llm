@@ -1,0 +1,92 @@
+[
+  {
+    "role": "user",
+    "content": "create repo prueba",
+    "timestamp": "2025-09-07T20:32:32.165516"
+  },
+  {
+    "role": "assistant",
+    "content": "Repository 'prueba' created.",
+    "timestamp": "2025-09-07T20:32:32.351983"
+  },
+  {
+    "role": "user",
+    "content": "add file to prueba named prueba.txt",
+    "timestamp": "2025-09-07T20:33:06.983469"
+  },
+  {
+    "role": "assistant",
+    "content": "File 'prueba' added to 'to'.",
+    "timestamp": "2025-09-07T20:33:07.119468"
+  },
+  {
+    "role": "user",
+    "content": "list files to",
+    "timestamp": "2025-09-07T20:33:35.028430"
+  },
+  {
+    "role": "assistant",
+    "content": "Files in 'to': ['.git', 'prueba']",
+    "timestamp": "2025-09-07T20:33:35.031254"
+  },
+  {
+    "role": "user",
+    "content": "create repo prueba",
+    "timestamp": "2025-09-07T20:34:33.965551"
+  },
+  {
+    "role": "assistant",
+    "content": "Repository 'prueba' created.",
+    "timestamp": "2025-09-07T20:34:34.112407"
+  },
+  {
+    "role": "user",
+    "content": "add file repo text.txt hola amigos",
+    "timestamp": "2025-09-07T20:34:44.264362"
+  },
+  {
+    "role": "assistant",
+    "content": "File 'text.txt' added to 'repo'.",
+    "timestamp": "2025-09-07T20:34:44.397361"
+  },
+  {
+    "role": "user",
+    "content": "create repo prueba",
+    "timestamp": "2025-09-07T20:37:09.561773"
+  },
+  {
+    "role": "assistant",
+    "content": "Repository 'prueba' created.",
+    "timestamp": "2025-09-07T20:37:09.661549"
+  },
+  {
+    "role": "user",
+    "content": "add file prueba README.md Hola esto es un read me de prueba",
+    "timestamp": "2025-09-07T20:37:28.571784"
+  },
+  {
+    "role": "assistant",
+    "content": "File 'README.md' added to 'prueba'.",
+    "timestamp": "2025-09-07T20:37:28.595796"
+  },
+  {
+    "role": "user",
+    "content": "list files prueba",
+    "timestamp": "2025-09-07T20:37:49.690608"
+  },
+  {
+    "role": "assistant",
+    "content": "Files in 'prueba': ['.git', 'README.md']",
+    "timestamp": "2025-09-07T20:37:49.693749"
+  },
+  {
+    "role": "user",
+    "content": "commit prueba",
+    "timestamp": "2025-09-07T20:37:55.766552"
+  },
+  {
+    "role": "assistant",
+    "content": "Commit made in 'prueba' with message 'Commit from MCP'.",
+    "timestamp": "2025-09-07T20:37:55.946315"
+  }
+]

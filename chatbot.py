@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import requests
 
-SERVER_URL = "http://127.0.0.1:8000/chat"
+SERVER_URL = "http://127.0.0.1:8001/git"
 
 def main():
-    print("🤖 Video Game Chatbot (with RAWG + OpenAI)")
+    print("🤖Chatbot")
     print("Commands: /exit | /summary")
     conversation = []
 

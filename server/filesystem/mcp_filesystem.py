@@ -10,6 +10,15 @@ os.makedirs(BASE_DIR, exist_ok=True)
 
 app = FastAPI()
 
+LOG_DIR = "logs"
+LOG_FILE = os.path.join(LOG_DIR, "filesystem_chat_log.json")
+os.makedirs(LOG_DIR, exist_ok=True)
+git_conversation = []
+
+def save_log():
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
+        json.dump(git_conversation, f, indent=2, ensure_ascii=False)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
