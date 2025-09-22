@@ -1,6 +1,0 @@
-[2025-09-21 19:14:14] User: can you give me a recomendation for action games?
-[2025-09-21 19:14:17] ToolResult: {"success": false, "error": "405 Client Error: Method Not Allowed for url: http://localhost:8000/rawg/genre"}
-[2025-09-21 19:14:19] Assistant: {"success": false, "error": "Unable to retrieve action game recommendations at this moment."}
-[2025-09-21 19:14:44] User: Do you have information about hollow knight?
-[2025-09-21 19:14:47] ToolResult: {"success": false, "error": "405 Client Error: Method Not Allowed for url: http://localhost:8000/rawg/search"}
-[2025-09-21 19:14:48] Assistant: {"success": false, "error": "Unable to retrieve information about Hollow Knight at this moment."}
