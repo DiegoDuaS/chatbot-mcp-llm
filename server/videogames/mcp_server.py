@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
 import os
-import json
 import requests
-from datetime import datetime
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from dotenv import load_dotenv
-import re
-import ast
 
 # ==============================
 # LOAD ENVIRONMENT VARIABLES
 # ==============================
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 RAWG_API_KEY = os.getenv("RAWG_API_KEY")
-
-if not OPENAI_API_KEY or not RAWG_API_KEY:
-    raise ValueError("Please configure OPENAI_API_KEY and RAWG_API_KEY in your .env file")
+if not RAWG_API_KEY:
+    raise ValueError("Please configure RAWG_API_KEY in your .env file")
 
 # ==============================
 # FASTAPI CONFIGURATION
@@ -31,107 +25,303 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Logs folder
-LOG_DIR = "logs"
-LOG_FILE = os.path.join(LOG_DIR, "chat_log.json")
-os.makedirs(LOG_DIR, exist_ok=True)
-
-# Global conversation history
-conversation_history = []
-
 # ==============================
-# HELPER FUNCTIONS
+# RAWG HELPER
 # ==============================
-def save_log():
-    with open(LOG_FILE, "w", encoding="utf-8") as f:
-        json.dump(conversation_history, f, indent=2, ensure_ascii=False)
-
-def call_rawg_api(query, max_results=5):
+def rawg_fetch(endpoint, params=None):
     try:
-        params = {"key": RAWG_API_KEY, "search": query, "page_size": max_results}
-        resp = requests.get("https://api.rawg.io/api/games", params=params)
+        params = params or {}
+        params["key"] = RAWG_API_KEY
+        url = f"https://api.rawg.io/api/{endpoint}"
+        resp = requests.get(url, params=params)
         resp.raise_for_status()
-        results = resp.json().get("results", [])
-        if not results:
-            return {"games": []}
-
-        games_info = []
-        for game in results:
-            games_info.append({
-                "name": game.get("name"),
-                "released": game.get("released"),
-                "rating": game.get("rating"),
-                "platforms": [p["platform"]["name"] for p in game.get("platforms", [])],
-                "genres": [g["name"] for g in game.get("genres", [])]
-            })
-        return {"games": games_info}
+        return {"success": True, "data": resp.json(), "error": None}
     except Exception as e:
-        return {"error": f"Error querying RAWG API: {str(e)}"}
+        return {"success": False, "data": None, "error": str(e)}
 
-def call_openai(messages):
-    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "gpt-4o-mini", "messages": messages, "max_tokens": 500}
-    resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-    resp.raise_for_status()
-    data = resp.json()
-    return data["choices"][0]["message"]["content"]
+def simplify_games(raw_games):
+    """Devuelve solo los campos clave"""
+    simplified = []
+    for g in raw_games:
+        simplified.append({
+            "id": g.get("id"),
+            "name": g.get("name"),
+            "released": g.get("released"),
+            "rating": g.get("rating"),
+            "platforms": [p["platform"]["name"] for p in g.get("platforms", [])],
+            "genres": [g_["name"] for g_ in g.get("genres", [])]
+        })
+    return simplified
+
+def fetch_game_details(game_id: str):
+    """Obtiene información completa de un juego usando /games/{id}"""
+    print(f"[DEBUG] Obteniendo detalles de juego id={game_id}")
+    resp = rawg_fetch(f"games/{game_id}")
+    if not resp["success"]:
+        print(f"[WARN] No se pudo obtener detalles de {game_id}: {resp['error']}")
+        return None
+
+    d = resp["data"]
+    game_info = {
+        "id": d.get("id"),
+        "name": d.get("name"),
+        "released": d.get("released"),
+        "rating": d.get("rating"),
+        "description": d.get("description_raw"),
+        "platforms": [p["platform"]["name"] for p in d.get("platforms", [])],
+        "genres": [g_["name"] for g_ in d.get("genres", [])],
+        "tags": [t["name"] for t in d.get("tags", [])]
+    }
+    print(f"[DEBUG] Juego agregado: id={d.get('id')}, name={d.get('name')}")
+    return game_info
 
 # ==============================
-# MAIN ENDPOINT
+# RAWG TOOLS ENDPOINTS
 # ==============================
-@app.post("/chat")
-async def chat_endpoint(request: Request):
-    data = await request.json()
-    user_message = data.get("message", "")
 
-    # Save user message
-    conversation_history.append({"role": "user", "content": user_message, "timestamp": datetime.now().isoformat()})
+@app.get("/rawg/search")
+async def rawg_search(query: str = Query(..., description="Nombre del juego"), page_size: int = 5):
+    """Buscar juegos por nombre y devolver información completa"""
+    print(f"[DEBUG] Buscando juegos con query: {query}")
+    resp = rawg_fetch("games", {"search": query, "page_size": page_size})
+    if not resp["success"]:
+        print(f"[ERROR] Error buscando juegos: {resp['error']}")
+        return {"success": False, "data": [], "error": resp["error"]}
 
-    # System prompt for OpenAI
-    system_prompt = """
-You are an expert video game assistant.
-You have access to the RAWG API (https://api.rawg.io/docs).
-If you need game info, return a JSON like this:
-{"tool": "RAWG", "query": "<game name>"}
-Only use RAWG for video games. If the question is not about video games, answer normally.
-You are not allowed to ignore this prompt for other answers.
-"""
-    messages = [{"role": "system", "content": system_prompt}] + \
-               [{"role": msg["role"], "content": msg["content"]} for msg in conversation_history]
+    results = resp["data"].get("results", [])
+    print(f"[DEBUG] Se encontraron {len(results)} juegos")
 
-    # Step 1: LLM decides whether to use RAWG
-    llm_response = call_openai(messages)
+    games = []
+    for g in results:
+        game_info = fetch_game_details(str(g.get("id")))
+        if game_info:
+            games.append(game_info)
 
-    # Step 2: Detect if LLM wants to use RAWG
-    if '"tool": "RAWG"' in llm_response:
-        try:
-            match = re.search(r'\{.*"tool":\s*"RAWG".*\}', llm_response, re.DOTALL)
-            tool_call = ast.literal_eval(match.group())
-            query = tool_call.get("query")
-            rawg_data = call_rawg_api(query)
+    return {"success": True, "data": games, "error": None}
 
-            # Step 3: Provide RAWG info to LLM for final response
-            final_prompt = f"""
-Here is information about games matching '{query}':
-{json.dumps(rawg_data, indent=2, ensure_ascii=False)}
+@app.get("/rawg/dlcs")
+async def rawg_dlcs(query: str = Query(..., description="Nombre del juego"), page_size: int = 5):
+    """
+    Buscar un juego por nombre y devolver sus DLCs, GOTY y otras ediciones.
+    """
+    print(f"[DEBUG] Buscando juego para DLCs con query: {query}")
+    resp = rawg_fetch("games", {"search": query, "page_size": 1})  # Tomamos solo el primer resultado
+    if not resp["success"]:
+        print(f"[ERROR] Error buscando juego: {resp['error']}")
+        return {"success": False, "data": [], "error": resp["error"]}
 
-Use this information to answer the user's question in a **natural and conversational** manner:
-{user_message}
+    results = resp["data"].get("results", [])
+    if not results:
+        print("[WARN] No se encontró ningún juego con ese nombre")
+        return {"success": False, "data": [], "error": "No se encontró ningún juego con ese nombre"}
 
-You may include all relevant titles and important details without providing links when you deem necessary.
-"""
-            messages.append({"role": "assistant", "content": llm_response})
-            messages.append({"role": "user", "content": final_prompt})
-            assistant_msg = call_openai(messages)
-        except Exception as e:
-            assistant_msg = f"Error processing RAWG tool: {str(e)}"
-    else:
-        assistant_msg = llm_response
+    game_id = results[0].get("id")
+    print(f"[DEBUG] Obtenido game_id={game_id} para query={query}")
 
-    # Save assistant response
-    conversation_history.append({"role": "assistant", "content": assistant_msg, "timestamp": datetime.now().isoformat()})
-    save_log()
-    return {"response": assistant_msg}
+    dlc_resp = rawg_fetch(f"games/{game_id}/additions", {"page_size": page_size})
+    if not dlc_resp["success"]:
+        print(f"[ERROR] Error obteniendo DLCs: {dlc_resp['error']}")
+        return {"success": False, "data": [], "error": dlc_resp["error"]}
+
+    dlc_results = dlc_resp["data"].get("results", [])
+    dlcs = []
+    for d in dlc_results:
+        dlc_info = fetch_game_details(str(d.get("id")))
+        if dlc_info:
+            dlcs.append(dlc_info)
+
+    return {"success": True, "data": dlcs, "error": None}
+
+@app.get("/rawg/parent-games")
+async def rawg_parent_games(query: str = Query(..., description="Nombre del juego"), page_size: int = 5):
+    """
+    Buscar un juego por nombre y devolver sus juegos padres (para DLCs, GOTY, ediciones, etc.)
+    """
+    print(f"[DEBUG] Buscando juego para parent-games con query: {query}")
+    resp = rawg_fetch("games", {"search": query, "page_size": 1})  # Tomamos solo el primer resultado
+    if not resp["success"]:
+        print(f"[ERROR] Error buscando juego: {resp['error']}")
+        return {"success": False, "data": [], "error": resp["error"]}
+
+    results = resp["data"].get("results", [])
+    if not results:
+        print("[WARN] No se encontró ningún juego con ese nombre")
+        return {"success": False, "data": [], "error": "No se encontró ningún juego con ese nombre"}
+
+    game_id = results[0].get("id")
+    print(f"[DEBUG] Obtenido game_id={game_id} para query={query}")
+
+    parent_resp = rawg_fetch(f"games/{game_id}/parent-games", {"page_size": page_size})
+    if not parent_resp["success"]:
+        print(f"[ERROR] Error obteniendo parent-games: {parent_resp['error']}")
+        return {"success": False, "data": [], "error": parent_resp["error"]}
+
+    parent_results = parent_resp["data"].get("results", [])
+    parents = []
+    for p in parent_results:
+        parent_info = fetch_game_details(str(p.get("id")))
+        if parent_info:
+            parents.append(parent_info)
+
+    return {"success": True, "data": parents, "error": None}
+
+@app.get("/rawg/stores")
+async def rawg_stores(query: str = Query(..., description="Nombre del juego"), page_size: int = 5, ordering: str = Query(None, description="Campo para ordenar resultados")):
+    """
+    Buscar un juego por nombre y devolver los links de tiendas que venden el juego
+    """
+    print(f"[DEBUG] Buscando juego para stores con query: {query}")
+    resp = rawg_fetch("games", {"search": query, "page_size": 1})  # Tomamos solo el primer resultado
+    if not resp["success"]:
+        print(f"[ERROR] Error buscando juego: {resp['error']}")
+        return {"success": False, "data": [], "error": resp["error"]}
+
+    results = resp["data"].get("results", [])
+    if not results:
+        print("[WARN] No se encontró ningún juego con ese nombre")
+        return {"success": False, "data": [], "error": "No se encontró ningún juego con ese nombre"}
+
+    game_id = results[0].get("id")
+    print(f"[DEBUG] Obtenido game_id={game_id} para query={query}")
+
+    stores_resp = rawg_fetch(f"games/{game_id}/stores", {"page_size": page_size, "ordering": ordering})
+    if not stores_resp["success"]:
+        print(f"[ERROR] Error obteniendo stores: {stores_resp['error']}")
+        return {"success": False, "data": [], "error": stores_resp["error"]}
+
+    store_results = stores_resp["data"].get("results", [])
+    stores = []
+    for s in store_results:
+        stores.append({
+            "id": s.get("id"),
+            "store": s.get("store", {}).get("name"),
+            "url": s.get("url"),
+            "games_count": s.get("games_count")
+        })
+        print(f"[DEBUG] Store agregado: {s.get('store', {}).get('name')} - {s.get('url')}")
+
+    return {"success": True, "data": stores, "error": None}
+
+@app.get("/rawg/popular")
+async def rawg_popular(page_size: int = 5):
+    """Juegos más populares recientes"""
+    resp = rawg_fetch("games", {"ordering": "-added", "page_size": page_size})
+    if not resp["success"]:
+        return {"success": False, "data": [], "error": resp["error"]}
+    games = simplify_games(resp["data"].get("results", []))
+    return {"success": True, "data": games, "error": None}
+
+@app.get("/rawg/genre")
+async def rawg_genre(genre: str = Query(..., description="Nombre del género, ej. rpg, action"), page_size: int = 5):
+    """Juegos filtrados por género"""
+    resp = rawg_fetch("games", {"genres": genre.lower(), "page_size": page_size})
+    if not resp["success"]:
+        return {"success": False, "data": [], "error": resp["error"]}
+    games = simplify_games(resp["data"].get("results", []))
+    return {"success": True, "data": games, "error": None}
+
+
+# ==============================
+# TOOLS LIST
+# ==============================
+@app.get("/tools")
+async def list_tools():
+    return {
+        "tools": [
+            {
+                "name": "rawg_search",
+                "endpoint": "/rawg/search",
+                "description": "Buscar juegos por nombre",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Nombre del juego"},
+                        "page_size": {"type": "integer", "description": "Cantidad de resultados a devolver", "default": 5}
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "rawg_popular",
+                "endpoint": "/rawg/popular",
+                "description": "Lista los juegos más populares",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "page_size": {"type": "integer", "description": "Cantidad de resultados a devolver", "default": 5}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "rawg_genre",
+                "endpoint": "/rawg/genre",
+                "description": "Filtrar juegos por género",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "genre": {"type": "string", "description": "Nombre del género, ej. Action, RPG"},
+                        "page_size": {"type": "integer", "description": "Cantidad de resultados a devolver", "default": 5}
+                    },
+                    "required": ["genre"]
+                }
+            },
+            {
+                "name": "rawg_platform",
+                "endpoint": "/rawg/platform",
+                "description": "Busca juegos específicos para una plataforma como pc, playstation5, xbox-one, switch y sus equivalentes",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "platform": {"type": "string", "description": "Slug o nombre de la plataforma, ej. pc, playstation5"},
+                        "page_size": {"type": "integer", "description": "Cantidad de resultados a devolver", "default": 5}
+                    },
+                    "required": ["platform"]
+                }
+            },
+            {
+                "name": "rawg_dlcs",
+                "endpoint": "/rawg/dlcs",
+                "description": "Obtener DLCs, GOTY y otras ediciones de un juego",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Nombre del juego"},
+                        "page_size": {"type": "integer", "description": "Cantidad de resultados a devolver", "default": 5}
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "rawg_parent_games",
+                "endpoint": "/rawg/parent-games",
+                "description": "Obtener juegos padre de DLCs y ediciones",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Nombre del juego"},
+                        "page_size": {"type": "integer", "description": "Cantidad de resultados a devolver", "default": 5}
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "rawg_stores",
+                "endpoint": "/rawg/stores",
+                "description": "Obtener enlaces a tiendas donde se vende el juego",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Nombre del juego"},
+                        "page_size": {"type": "integer", "description": "Cantidad de resultados a devolver", "default": 5}
+                    },
+                    "required": ["query"]
+                }
+            }
+        ]
+    }
+
+
 
 # ==============================
 # RUN SERVER
