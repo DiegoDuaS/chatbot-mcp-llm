@@ -11,7 +11,7 @@ mcp = FastMCP("git-mcp")
 
 # Configuration
 load_dotenv()
-GIT_BASE_DIR = os.getenv("GIT_BASE_DIR", "./repos")
+GIT_BASE_DIR = os.getenv("GIT_BASE_DIR", r"C:\Users\diego\OneDrive\Escritorio\2025\Semestre VIII\Redes\repos")
 os.makedirs(GIT_BASE_DIR, exist_ok=True)
 
 LOG_DIR = "logs"
@@ -117,44 +117,27 @@ def add_file(repo_name: str, file_name: str, content: str = "") -> str:
         return error_msg
 
 @mcp.tool()
-def commit(repo_name: str, message: str = "Commit from MCP") -> str:
-    """
-    Make a commit in the repository
-    
-    Args:
-        repo_name: Repository name
-        message: Commit message (default: "Commit from MCP")
-    
-    Returns:
-        Success message with commit SHA
-    """
-    try:
-        if not repo_name:
-            return "Error: repo_name is required"
-        
-        repo = get_repo(repo_name)
-        
-        # Check if there are changes to commit
-        if not repo.index.diff("HEAD") and not repo.untracked_files:
-            response = f"No changes to commit in '{repo_name}'"
-            log_message("assistant", response)
-            return response
-        
-        # Add all untracked files first
+def commit(repo_name: str, message: str = "Initial commit from MCP") -> str:
+    repo = get_repo(repo_name)
+
+    # If repository has no commits yet
+    if not repo.head.is_valid():
+        # Add all files (including README)
         if repo.untracked_files:
             repo.index.add(repo.untracked_files)
-        
-        # Make commit
         commit_obj = repo.index.commit(message)
-        
-        response = f"Commit made in '{repo_name}' with message: '{message}' (SHA: {commit_obj.hexsha[:8]})"
-        log_message("assistant", response)
-        
-        return response
-    except Exception as e:
-        error_msg = f"Error committing to '{repo_name}': {str(e)}"
-        log_message("assistant", error_msg)
-        return error_msg
+        return f"Initial commit created in '{repo_name}' (SHA: {commit_obj.hexsha[:8]})"
+
+    # Normal commit for existing repository
+    if not repo.index.diff("HEAD") and not repo.untracked_files:
+        return f"No changes to commit in '{repo_name}'"
+
+    if repo.untracked_files:
+        repo.index.add(repo.untracked_files)
+
+    commit_obj = repo.index.commit(message)
+    return f"Commit made in '{repo_name}' with message: '{message}' (SHA: {commit_obj.hexsha[:8]})"
+
 
 @mcp.tool()
 def list_files(repo_name: str) -> str:

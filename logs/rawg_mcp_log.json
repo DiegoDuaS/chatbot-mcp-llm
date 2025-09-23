@@ -1,0 +1,32 @@
+[
+  {
+    "role": "user",
+    "content": "Searching games: mariokart",
+    "timestamp": "2025-09-23T13:36:58.470936"
+  },
+  {
+    "role": "assistant",
+    "content": "Found 1 games for 'mariokart'",
+    "timestamp": "2025-09-23T13:36:59.138726"
+  },
+  {
+    "role": "user",
+    "content": "Searching games: Mario Kart World",
+    "timestamp": "2025-09-23T13:37:26.123952"
+  },
+  {
+    "role": "assistant",
+    "content": "Found 5 games for 'Mario Kart World'",
+    "timestamp": "2025-09-23T13:37:26.644256"
+  },
+  {
+    "role": "user",
+    "content": "Getting details for game: Hollow Knight",
+    "timestamp": "2025-09-23T13:38:06.114302"
+  },
+  {
+    "role": "assistant",
+    "content": "Retrieved details for 'Hollow Knight'",
+    "timestamp": "2025-09-23T13:38:07.409397"
+  }
+]

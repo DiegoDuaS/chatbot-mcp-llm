@@ -1,0 +1,67 @@
+[
+    {
+        "timestamp": "2025-09-23T13:19:54.833098",
+        "user": "Do you recomend any 2020 movies?",
+        "bot": "I found a recommended movie from 2020 for you:\n\n### Avatar 2\n- **Overview**: A sequel to Avatar (2009).\n- **Genres**: Action, Adventure, Fantasy, Science Fiction\n- **Release Date**: December 16, 2020\n- **IMDb Rating**: Not yet rated (vote count: 58)\n- **Popularity**: 6.02\n\n![Avatar 2 Poster](https://image.tmdb.org/t/p/wvpOVl37PR21mENpmZKVwrLUsRD.jpg)\n\nIf you're interested in more recommendations or details about other movies, just let me know!",
+        "tools_used": [
+            "recommend_movies_tool"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T13:20:38.717720",
+        "user": "I want to search the top movies of jennifer lawerence?",
+        "bot": "It seems that there are currently no top-rated or popular films listed for Jennifer Lawrence in the database. This could be due to various reasons, such as a lack of recent film releases or updates in the database.\n\nIf you would like to explore movies featuring her or get information about specific titles, please let me know!",
+        "tools_used": [
+            "top_movies_by_actor_tool"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T13:20:57.256049",
+        "user": "And Megan Fox?",
+        "bot": "It appears that there are currently no top-rated or popular films listed for Megan Fox in the database. This might be due to a lack of recent releases or other factors.\n\nIf you're interested in specific movies featuring her or would like to explore a different actor or genre, please let me know!",
+        "tools_used": [
+            "top_movies_by_actor_tool"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T13:21:22.728335",
+        "user": "Do you have any similar movies to avatar 2?",
+        "bot": "It seems that there are currently no similar movies listed for \"Avatar 2\" in the database. This could be due to the movie being relatively new or the database not having enough information to provide recommendations.\n\nIf you're interested in other films in the science fiction or fantasy genres, or if you have specific titles in mind, please let me know, and I can help you find something!",
+        "tools_used": [
+            "similar_movies_tool"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T13:21:53.603027",
+        "user": "I want to get a better sleeping schedule!",
+        "bot": "To help you create a better sleeping schedule, I recommend following these steps:\n\n1. **User Profile Creation**: I'll need some information about your current sleep habits and lifestyle to generate personalized recommendations.\n2. **Sleep Analysis**: We can analyze your current sleep pattern to identify any issues.\n3. **Recommendations and Schedule**: Based on the analysis, we can create a personalized weekly sleep schedule and provide recommendations.\n\nPlease provide the following details for your user profile:\n\n- **User ID** (a unique identifier for you)\n- **Name**\n- **Age**\n- **Chronotype** (choose one: \"morning_lark\", \"night_owl\", or \"intermediate\")\n- **Current Bedtime** (in HH:MM format)\n- **Current Wake Time** (in HH:MM format)\n- **Sleep Duration** (in hours, between 4.0 to 12.0)\n- **Goals** (e.g., improve sleep quality, reduce insomnia)\n- **Work Schedule** (brief description)\n- **Optional**: Exercise time, screen time before bed, stress level (1-10), and sleep quality rating (1-10)\n\nOnce I have this information, I can assist you further!",
+        "tools_used": []
+    },
+    {
+        "timestamp": "2025-09-23T13:24:09.709795",
+        "user": "- 0001 - Diego - 21 - night_owl - 00:00 - 08:00 - 8.0 - more_energy - I wake up at 8 and start working at 8:30, i go on until 14:30, then i go to uni from 16:00 to 21:00 - Screentime before bed 2 hours, stress level 7",
+        "bot": "Your user profile has been successfully created, Diego! \n\nNow, let's analyze your current sleep pattern to detect any issues and provide personalized recommendations for a better sleeping schedule. \n\nI'll proceed with the analysis now.",
+        "tools_used": [
+            "create_user_profile"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T13:25:00.494943",
+        "user": "Can a get a sleeping schedule?",
+        "bot": "It looks like there was an issue with the Sleep Coach Server while trying to analyze your sleep pattern and create a weekly schedule. Unfortunately, the server timed out, which means I couldn't retrieve the recommendations or schedule at this moment.\n\nLet me try again to create a personalized weekly sleep schedule for you. Please hold on.",
+        "tools_used": [
+            "create_user_profile",
+            "analyze_sleep_pattern",
+            "create_weekly_schedule"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T13:26:37.744983",
+        "user": "Try again pls",
+        "bot": "It seems that the Sleep Coach Server is experiencing persistent issues, and I'm unable to retrieve the analysis or create a sleeping schedule at this time.\n\nWhile I can't provide a personalized schedule right now, I can offer some general tips to help improve your sleep quality and establish a better sleeping routine:\n\n### General Sleep Improvement Tips:\n1. **Consistent Sleep Schedule**: Try to go to bed and wake up at the same time every day, even on weekends.\n2. **Limit Screen Time**: Reduce exposure to screens at least an hour before bed to help your brain wind down.\n3. **Create a Relaxing Bedtime Routine**: Engage in calming activities like reading, meditating, or taking a warm bath.\n4. **Optimize Your Sleep Environment**: Ensure your bedroom is dark, quiet, and cool. Consider using earplugs or a white noise machine if needed.\n5. **Limit Caffeine and Heavy Meals**: Avoid caffeine and heavy meals in the few hours leading up to bedtime.\n6. **Exercise Regularly**: Incorporate physical activity into your daily routine, but try to finish exercising a few hours before bedtime.\n7. **Manage Stress**: Practice relaxation techniques such as deep breathing, yoga, or mindfulness to help reduce your stress level.\n\nIf you have specific questions or need further assistance, feel free to ask!",
+        "tools_used": [
+            "analyze_sleep_pattern",
+            "create_weekly_schedule"
+        ]
+    }
+]
