@@ -1,17 +1,22 @@
 import os
 import json
 import uuid
+import subprocess
+import threading
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 import requests
+from typing import Dict, List, Optional
+from queue import Queue, Empty
 
 # ======================
-# Configuración inicial
+# Initial configuration
 # ======================
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
-    raise ValueError("❌ No se encontró OPENAI_API_KEY en el .env")
+    raise ValueError("OPENAI_API_KEY not found in .env")
 
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 
@@ -20,100 +25,331 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# MCP Servers
-MCP_GIT_URL = "http://localhost:8002/"
-
 # ======================
-# Variables de sesión
+# MCP Server configuration
 # ======================
-messages = [{"role": "system", "content": """Eres un asistente experto en Git y desarrollo de software. 
-Tienes acceso a herramientas para manejar repositorios Git locales.
+class MCPServerConfig:
+    def __init__(self, name: str, command: str, args: List[str] = None,
+                 description: str = "", enabled: bool = True, cwd: str = None):
+        self.name = name
+        self.command = command
+        self.args = args or []
+        self.description = description
+        self.enabled = enabled
+        self.cwd = cwd or "."
+        self.tools = []
+        self.process = None
+        self.reader_thread = None
+        self.output_queue = Queue()
 
-Puedes:
-- Crear repositorios nuevos
-- Agregar archivos con contenido específico
-- Realizar commits con mensajes descriptivos
-- Listar archivos y ver el estado del repositorio
+# Server configurations - using subprocess instead of HTTP
+MCP_SERVERS = {
+    "git": MCPServerConfig(
+        name="Git Server",
+        command="python",
+        args=["server/git/mcp_git.py"],
+        description="Server for Git operations via stdio",
+        enabled=True
+    ),
+    "filesystem": MCPServerConfig(
+        name="Filesystem Server",
+        command="python",
+        args=["server/filesystem/mcp_filesystem.py"],
+        description="Server for file operations via stdio",
+        enabled=True
+    ),
+    "rawg": MCPServerConfig(
+        name="RAWG Games Server",
+        command="python",
+        args=["server/videogames/mcp_server.py"],
+        description="Server for game info via stdio",
+        enabled=True
+    ),
+    "sleep_coach": MCPServerConfig(
+        name="Sleep Coach Server",
+        command="python",
+        args=[r'sleep_coach.py'],
+        description="AI-powered sleep coach that provides personalized sleep analysis, recommendations, schedules, and guidance. Use for questions about sleep patterns, insomnia, sleep quality, bedtime routines, chronotypes, and sleep optimization.",
+        enabled=True,
+        cwd=r"C:\Users\diego\OneDrive\Escritorio\2025\Semestre VIII\Redes\SleepCoachServer"
+    ),
+    "movies_server": MCPServerConfig(
+        name="Movies Server",
+        command="python",
+        args=[r'movie_server.py'],
+        description="Movie recommendations and information server",
+        enabled=True,
+        cwd=r"C:\Users\diego\OneDrive\Escritorio\2025\Semestre VIII\Redes\Movies_ChatBot"
+    )
+}
 
-Cuando el usuario te pida hacer algo relacionado con Git, usa las herramientas disponibles para ayudarle.
-Sé descriptivo sobre lo que haces y confirma cada acción realizada."""}]
-
-log_interacciones = []
+# Session variables
+messages = []
+interaction_log = []
+all_tools = []
+function_server_map = {}
 
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
-session_file = os.path.join(LOG_DIR, f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+session_file = os.path.join(LOG_DIR, f"mcp_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
 
 # ======================
-# Funciones MCP
+# MCP Communication functions
 # ======================
-def llamar_mcp(server_url, metodo, params):
-    """
-    Envía una request JSON-RPC a un servidor MCP y devuelve la respuesta.
-    """
-    request_jsonrpc = {
+def enqueue_output(out, queue):
+    """Function to read output from a process and put it into a queue."""
+    for line in iter(out.readline, ''):
+        queue.put(line)
+    out.close()
+
+def start_mcp_server(server: MCPServerConfig) -> bool:
+    """Start an MCP server as a subprocess."""
+    if not server.enabled:
+        return False
+        
+    try:
+        print(f"Starting {server.name}...")
+        
+        # Check if server file exists
+        server_file = os.path.join(server.cwd, server.args[0])
+        if not os.path.exists(server_file):
+            print(f"Warning: {server_file} not found, skipping {server.name}")
+            server.enabled = False
+            return False
+        
+        # Start the process
+        server.process = subprocess.Popen(
+            [server.command] + server.args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=server.cwd,
+            bufsize=1
+        )
+        
+        # Start a non-blocking reader thread for stdout
+        server.reader_thread = threading.Thread(target=enqueue_output, args=(server.process.stdout, server.output_queue), daemon=True)
+        server.reader_thread.start()
+        
+        # Increased to 5 seconds to give the async server more time to start
+        time.sleep(5)
+        
+        # Check if process is still running
+        if server.process.poll() is not None:
+            print(f"Failed to start {server.name} - process exited")
+            server.enabled = False
+            return False
+        
+        print(f"Started {server.name} (PID: {server.process.pid})")
+        return True
+        
+    except Exception as e:
+        print(f"Error starting {server.name}: {e}")
+        server.enabled = False
+        return False
+
+def send_mcp_request(server: MCPServerConfig, method: str, params: dict, timeout: int = 15) -> dict:
+    """Send a JSON-RPC request to an MCP server via stdin/stdout."""
+    if not server.process or server.process.poll() is not None:
+        return {"error": {"code": -1, "message": "Server process not running"}}
+    
+    request_id = str(uuid.uuid4())
+    request = {
         "jsonrpc": "2.0",
-        "id": str(uuid.uuid4()),
-        "method": metodo,
+        "id": request_id,
+        "method": method,
         "params": params
     }
+    
     try:
-        resp = requests.post(server_url, json=request_jsonrpc, timeout=10)
-        return resp.json()
+        # Send request
+        request_line = json.dumps(request) + "\n"
+        server.process.stdin.write(request_line)
+        server.process.stdin.flush()
+        
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                line = server.output_queue.get(timeout=1)
+                raw = line.strip()
+                if not raw:
+                    continue
+                
+                try:
+                    response = json.loads(raw)
+                    if "id" in response and response["id"] == request_id:
+                        # Found the response we were looking for
+                        return response
+                    elif "method" in response and "params" in response:
+                        # This is a notification, just print it and continue
+                        print(f"[NOTIFICATION] from {server.name}: {raw}")
+                        continue
+                    else:
+                        # An unexpected JSON-RPC message, ignore it
+                        print(f"[DEBUG] Ignoring message from {server.name} with mismatching ID: {raw}")
+                        continue
+                        
+                except json.JSONDecodeError:
+                    print(f"[DEBUG] Invalid JSON from {server.name}: {raw}")
+                    continue
+            
+            except Empty:
+                # Queue is empty, continue waiting
+                continue
+        
+        return {"error": {"code": -1, "message": f"Timeout ({timeout}s) waiting for response from {server.name}"}}
+    
     except Exception as e:
-        return {"error": {"code": -1, "message": str(e)}}
+        return {"error": {"code": -1, "message": f"Communication error: {str(e)}"}}
 
-def obtener_tools_del_servidor(server_url):
-    """
-    Obtiene la lista de herramientas disponibles en un MCP server.
-    """
-    request_jsonrpc = {
-        "jsonrpc": "2.0",
-        "id": str(uuid.uuid4()),
-        "method": "list_tools",
-        "params": {}
-    }
-    try:
-        resp = requests.post(server_url, json=request_jsonrpc, timeout=10).json()
-        if "result" in resp and "tools" in resp["result"]:
-            return resp["result"]["tools"]
-    except Exception as e:
-        print(f"⚠️ Error obteniendo tools del servidor: {e}")
+def get_server_tools(server: MCPServerConfig) -> List[dict]:
+    """Get tools from an MCP server."""
+    if not server.enabled or not server.process:
+        return []
+    
+    print(f"Getting tools from {server.name}...")
+    
+    # Send the list_tools request
+    response = send_mcp_request(server, "list_tools", {})
+    
+    # The response for list_tools can have a different format on async servers.
+    # We must check the result directly.
+    if "result" in response and isinstance(response["result"], dict) and "tools" in response["result"]:
+        tools = response["result"]["tools"]
+        server.tools = tools
+        
+        # Map functions to this server
+        for tool in tools:
+            if "function" in tool and "name" in tool["function"]:
+                function_name = tool["function"]["name"]
+                function_server_map[function_name] = server
+        
+        print(f"{server.name}: {len(tools)} tools loaded")
+        for tool in tools:
+            if "function" in tool:
+                func_name = tool["function"]["name"]
+                func_desc = tool["function"].get("description", "No description")
+                print(f"    - {func_name}: {func_desc}")
+        
+        return tools
+    elif "error" in response:
+        print(f"Error getting tools from {server.name}: {response['error']['message']}")
+        server.enabled = False
+    
     return []
 
-def ejecutar_tool_call(tool_call):
-    """
-    Ejecuta una llamada a herramienta MCP.
-    """
+def start_all_servers() -> List[dict]:
+    """Start all MCP servers and load their tools."""
+    global all_tools, function_server_map
+    all_tools = []
+    function_server_map = {}
+    
+    print("\nStarting MCP servers...")
+    print("=" * 50)
+    
+    active_servers = 0
+    for server_key, server in MCP_SERVERS.items():
+        if start_mcp_server(server):
+            tools = get_server_tools(server)
+            all_tools.extend(tools)
+            if tools:
+                active_servers += 1
+        else:
+            print(f"Skipped {server.name}")
+    
+    print("=" * 50)
+    print(f"Summary: {active_servers} active servers, {len(all_tools)} tools available")
+    
+    return all_tools
+
+def execute_tool_call(tool_call: dict) -> str:
+    """Execute a tool call on the corresponding server."""
     function_name = tool_call["function"]["name"]
     arguments = json.loads(tool_call["function"]["arguments"])
     
-    print(f"🔧 Ejecutando: {function_name} con argumentos: {arguments}")
+    server = function_server_map.get(function_name)
+    if not server:
+        return f"Error: Unknown function '{function_name}'"
     
-    # Mapear nombre de función a método MCP
-    mcp_response = llamar_mcp(MCP_GIT_URL, function_name, arguments)
+    print(f"Executing {function_name} on {server.name}")
+    print(f"Parameters: {arguments}")
     
-    if "result" in mcp_response:
-        result = mcp_response["result"]
+    # Corrected the method name to "call_tool" as expected by the mcp.server framework
+    response = send_mcp_request(server, "call_tool", {"name": function_name, "arguments": arguments})
+    
+    if "result" in response:
+        # The result of an async mcp.server is a list of TextContent objects.
+        result = response["result"]
+        if isinstance(result, list) and all(isinstance(item, dict) and "text" in item for item in result):
+            return "\n".join([item["text"] for item in result])
+        
+        # Fallback for old servers
         if isinstance(result, dict) and "message" in result:
             return result["message"]
+            
         return str(result)
-    elif "error" in mcp_response:
-        return f"❌ Error: {mcp_response['error']['message']}"
+    elif "error" in response:
+        error_msg = response["error"]["message"]
+        return f"Error on {server.name}: {error_msg}"
     
-    return "✅ Operación completada"
+    return "Operation completed"
+
+def stop_all_servers():
+    """Stop all MCP server processes."""
+    print("\nShutting down MCP servers...")
+    for server_key, server in MCP_SERVERS.items():
+        if server.process and server.process.poll() is None:
+            print(f"Stopping {server.name}...")
+            server.process.terminate()
+            try:
+                server.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                server.process.kill()
+                print(f"Force killed {server.name}")
 
 # ======================
-# Funciones LLM
+# OpenAI functions
 # ======================
-def enviar_a_openai(messages_context, tools=None):
-    """
-    Envía mensajes a OpenAI y maneja tool calls.
-    """
+def create_system_prompt() -> str:
+    """Create system prompt based on available tools."""
+    active_servers = [s for s in MCP_SERVERS.values() if s.enabled and s.tools]
+    
+    prompt = """You are an expert assistant with access to multiple MCP (Model Context Protocol) servers.
+
+AVAILABLE SERVERS:
+"""
+    
+    for server in active_servers:
+        prompt += f"\n{server.name.upper()}:\n"
+        if server.description:
+            prompt += f"    Description: {server.description}\n"
+        prompt += "    Tools:\n"
+        for tool in server.tools:
+            if "function" in tool:
+                func_name = tool["function"]["name"]
+                func_desc = tool["function"].get("description", "No description")
+                prompt += f"    - {func_name}: {func_desc}\n"
+    
+    prompt += """
+INSTRUCTIONS:
+- Use the available tools to help users accomplish their tasks
+- Be descriptive about what you're doing
+- Ask for clarification if you need more information
+- You can combine tools from different servers
+- Always confirm the results of operations
+- Handle errors gracefully and explain what went wrong
+
+Respond helpfully and professionally."""
+    
+    return prompt
+
+def send_to_openai(messages_context: List[dict], tools: Optional[List[dict]] = None) -> tuple:
+    """Send messages to OpenAI and handle tool calls."""
     payload = {
         "model": "gpt-4o-mini",
         "messages": messages_context,
-        "max_tokens": 1000,
+        "max_tokens": 1500,
         "temperature": 0.7
     }
     
@@ -125,156 +361,194 @@ def enviar_a_openai(messages_context, tools=None):
         response = requests.post(OPENAI_URL, headers=HEADERS, json=payload, timeout=30)
         
         if response.status_code != 200:
-            return f"⚠️ Error HTTP {response.status_code}: {response.text}"
+            return f"HTTP error {response.status_code}: {response.text}", []
         
         data = response.json()
         message = data["choices"][0]["message"]
         
-        # Si hay tool calls, ejecutarlos
+        # Handle tool calls
         if "tool_calls" in message and message["tool_calls"]:
-            # Agregar el mensaje del asistente (con tool calls) al contexto
             messages_context.append(message)
             
-            # Ejecutar cada tool call
+            used_tools = []
             for tool_call in message["tool_calls"]:
-                tool_result = ejecutar_tool_call(tool_call)
+                used_tools.append(tool_call["function"]["name"])
+                tool_result = execute_tool_call(tool_call)
                 
-                # Agregar el resultado de la tool al contexto
                 tool_message = {
-                    "role": "tool",
+                    "role": "tool", 
                     "tool_call_id": tool_call["id"],
                     "content": tool_result
                 }
                 messages_context.append(tool_message)
             
-            # Obtener respuesta final del asistente
+            # Get final response
             final_payload = {
                 "model": "gpt-4o-mini",
                 "messages": messages_context,
-                "max_tokens": 1000,
+                "max_tokens": 1500,
                 "temperature": 0.7
             }
             
             final_response = requests.post(OPENAI_URL, headers=HEADERS, json=final_payload, timeout=30)
             final_data = final_response.json()
-            return final_data["choices"][0]["message"]["content"]
+            final_content = final_data["choices"][0]["message"]["content"]
+            
+            return final_content, used_tools
         
-        return message["content"]
+        return message["content"], []
         
     except Exception as e:
-        return f"❌ Error de conexión: {str(e)}"
+        return f"Connection error: {str(e)}", []
 
 # ======================
-# Funciones de log
+# Utility functions
 # ======================
-def guardar_log(usuario, bot, tools_used=None):
-    entrada = {
+def save_log(user: str, bot: str, tools_used: List[str] = None):
+    """Save conversation log."""
+    entry = {
         "timestamp": datetime.now().isoformat(),
-        "usuario": usuario,
+        "user": user,
         "bot": bot,
         "tools_used": tools_used or []
     }
-    log_interacciones.append(entrada)
+    interaction_log.append(entry)
     
     try:
         with open(session_file, "w", encoding="utf-8") as f:
-            json.dump(log_interacciones, f, indent=4, ensure_ascii=False)
+            json.dump(interaction_log, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        print(f"⚠️ Error guardando log: {e}")
+        print(f"Error saving log: {e}")
 
-def mostrar_log():
-    print("\n📜 Log de interacciones:")
-    for i, entry in enumerate(log_interacciones, 1):
-        print(f"\n[{i}] {entry['timestamp']}")
-        print(f"👤 Usuario: {entry['usuario']}")
-        print(f"🤖 Bot: {entry['bot'][:100]}{'...' if len(entry['bot']) > 100 else ''}")
+def show_log():
+    """Display interaction history."""
+    if not interaction_log:
+        print("No interactions recorded yet")
+        return
+    
+    print("\nInteraction History:")
+    print("=" * 50)
+    for i, entry in enumerate(interaction_log, 1):
+        timestamp = entry['timestamp'].split('T')[1][:8]
+        print(f"\n[{i}] {timestamp}")
+        print(f"User: {entry['user']}")
+        print(f"Bot: {entry['bot'][:150]}{'...' if len(entry['bot']) > 150 else ''}")
         if entry.get('tools_used'):
-            print(f"🔧 Tools usadas: {', '.join(entry['tools_used'])}")
+            print(f"Tools: {', '.join(entry['tools_used'])}")
 
-def test_mcp_connection():
-    """
-    Prueba la conexión con el servidor MCP.
-    """
-    print("🔍 Probando conexión con MCP Git server...")
-    try:
-        resp = requests.get(MCP_GIT_URL + "health", timeout=5)
-        if resp.status_code == 200:
-            print("✅ Conexión con MCP Git server OK")
-            return True
-    except Exception as e:
-        print(f"❌ Error conectando con MCP server: {e}")
-        print("💡 Asegúrate de que el servidor Git MCP esté corriendo en puerto 8002")
-        return False
-    return False
+def show_servers():
+    """Show status of all MCP servers."""
+    print("\nMCP Server Status:")
+    print("=" * 50)
+    for key, server in MCP_SERVERS.items():
+        if server.process and server.process.poll() is None:
+            status = "Running (PID: {})".format(server.process.pid)
+        else:
+            status = "Not running"
+        
+        print(f"{status} - {server.name}")
+        print(f"    Command: {server.command} {' '.join(server.args)}")
+        if server.description:
+            print(f"    Description: {server.description}")
+        print(f"    Tools: {len(server.tools)}")
+        
+        if server.tools:
+            for tool in server.tools[:3]:
+                if "function" in tool:
+                    name = tool["function"]["name"]
+                    desc = tool["function"].get("description", "")[:50]
+                    print(f"      - {name}: {desc}{'...' if len(desc) >= 50 else ''}")
+            if len(server.tools) > 3:
+                print(f"      ... and {len(server.tools) - 3} more")
+        print()
+
+def show_help():
+    """Show available commands."""
+    print("\nAvailable commands:")
+    print("    'exit' - End session and stop servers")
+    print("    'log' - View interaction history")
+    print("    'servers' - Show MCP server status")
+    print("    'reload' - Restart servers and reload tools")
+    print("    'help' - Show this help")
+    print()
 
 # ======================
-# Entrada principal
+# Main function
 # ======================
 def main():
-    print("🚀 Cliente MCP Chatbot con herramientas Git")
-    print("💬 Comandos disponibles:")
-    print("   - 'salir': Terminar sesión")
-    print("   - 'log': Ver historial de interacciones")
-    print("   - 'test': Probar conexión MCP")
-    print()
+    global messages
     
-    # Verificar conexión inicial
-    if not test_mcp_connection():
-        print("⚠️ Continuando sin conexión MCP (funcionalidad limitada)")
+    print("MCP Client with Subprocess Communication")
+    print("=" * 50)
     
-    # Obtener tools dinámicamente del MCP Git
-    git_tools = obtener_tools_del_servidor(MCP_GIT_URL)
-    
-    if git_tools:
-        print(f"🔧 Herramientas Git cargadas: {len(git_tools)}")
-        for tool in git_tools:
-            print(f"   - {tool['function']['name']}: {tool['function']['description']}")
-        print()
-    else:
-        print("⚠️ No se pudieron cargar las herramientas Git")
-        print()
-
-    while True:
-        try:
-            user_input = input("👤 Tú: ").strip()
-            
-            if not user_input:
-                continue
+    try:
+        # Start all servers
+        tools = start_all_servers()
+        
+        if not tools:
+            print("No tools available. Check server configurations.")
+            return
+        
+        # Create system prompt
+        system_prompt = create_system_prompt()
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        print(f"Log will be saved to: {session_file}")
+        show_help()
+        
+        while True:
+            try:
+                user_input = input("You: ").strip()
                 
-            if user_input.lower() == "salir":
-                print(f"📝 Log guardado en: {session_file}")
+                if not user_input:
+                    continue
+                
+                # Handle commands
+                if user_input.lower() == "exit":
+                    break
+                elif user_input.lower() == "log":
+                    show_log()
+                    continue
+                elif user_input.lower() == "servers":
+                    show_servers()
+                    continue
+                elif user_input.lower() == "reload":
+                    print("Restarting servers...")
+                    stop_all_servers()
+                    time.sleep(2)
+                    tools = start_all_servers()
+                    system_prompt = create_system_prompt()
+                    messages = [{"role": "system", "content": system_prompt}]
+                    continue
+                elif user_input.lower() == "help":
+                    show_help()
+                    continue
+                
+                # Process user message
+                messages.append({"role": "user", "content": user_input})
+                
+                response, tools_used = send_to_openai(messages.copy(), tools=tools)
+                
+                messages.append({"role": "assistant", "content": response})
+                
+                save_log(user_input, response, tools_used)
+                
+                print(f"Bot: {response}")
+                if tools_used:
+                    print(f"Tools used: {', '.join(tools_used)}")
+                print()
+                
+            except KeyboardInterrupt:
+                print("\nSession interrupted")
                 break
-                
-            if user_input.lower() == "log":
-                mostrar_log()
+            except Exception as e:
+                print(f"Error: {e}")
                 continue
-                
-            if user_input.lower() == "test":
-                test_mcp_connection()
-                continue
-
-            # Añadir mensaje del usuario al contexto
-            messages.append({"role": "user", "content": user_input})
-
-            # Obtener respuesta del LLM (con manejo de tool calls)
-            respuesta = enviar_a_openai(messages.copy(), tools=git_tools)
-
-            # Añadir respuesta al contexto
-            messages.append({"role": "assistant", "content": respuesta})
-
-            # Guardar log
-            guardar_log(user_input, respuesta)
-
-            print(f"🤖 Bot: {respuesta}")
-            print()
-
-        except KeyboardInterrupt:
-            print("\n\n👋 Sesión interrumpida por el usuario")
-            print(f"📝 Log guardado en: {session_file}")
-            break
-        except Exception as e:
-            print(f"❌ Error inesperado: {e}")
-            continue
+    
+    finally:
+        # Always clean up
+        stop_all_servers()
+        print(f"Session saved to: {session_file}")
 
 if __name__ == "__main__":
     main()
