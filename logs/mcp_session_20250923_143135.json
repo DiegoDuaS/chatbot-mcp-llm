@@ -1,0 +1,26 @@
+[
+    {
+        "timestamp": "2025-09-23T14:32:12.811190",
+        "user": "can you give me the different mariokarts that were ever released?",
+        "bot": "Here are the different Mario Kart games that have been released:\n\n1. **Mario Kart**  \n   - **Released:** January 4, 2022  \n   - **Platforms:** PC  \n   - **Genres:** Racing\n\n2. **Mario Kart World**  \n   - **Released:** June 5, 2025  \n   - **Rating:** 4.24/5.0  \n   - **Platforms:** Nintendo Switch  \n   - **Genres:** Racing, Action\n\n3. **Mario Kart 64**  \n   - **Released:** December 14, 1996  \n   - **Rating:** 4.32/5.0  \n   - **Metacritic:** 83/100  \n   - **Platforms:** Wii U, Wii, Nintendo 64  \n   - **Genres:** Racing\n\n4. **Mario Kart: Double Dash**  \n   - **Released:** November 7, 2003  \n   - **Rating:** 4.35/5.0  \n   - **Metacritic:** 87/100  \n   - **Platforms:** GameCube  \n   - **Genres:** Racing\n\n5. **Mario Kart: Super Circuit**  \n   - **Released:** July 21, 2001  \n   - **Rating:** 3.8/5.0  \n   - **Metacritic:** 93/100  \n   - **Platforms:** Game Boy Advance  \n   - **Genres:** Racing\n\nIf you need more information about any specific title, feel free to ask!",
+        "tools_used": [
+            "search_games"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T14:32:35.457544",
+        "user": "Is there a Mario Kart wii?",
+        "bot": "Yes, there is a game called **Mario Kart Wii**. Here are the details:\n\n- **Released:** April 27, 2008\n- **Rating:** 4.3/5.0\n- **Metacritic Score:** 82/100\n- **Platforms:** Wii\n- **Genres:** Racing\n\nMario Kart Wii introduced new features such as the ability to race online, new characters, and vehicles, including motorcycles. If you need more information about this game or any other titles, just let me know!",
+        "tools_used": [
+            "search_games"
+        ]
+    },
+    {
+        "timestamp": "2025-09-23T14:33:14.916270",
+        "user": "Can I get a recomendation for other games with a similar genre?",
+        "bot": "Here are some recommendations for racing games that are similar to Mario Kart:\n\n1. **Ballistics**  \n   - **Released:** October 1, 2001  \n   - **Rating:** 4.67/5.0  \n   - **Platforms:** PC, Linux  \n   - **Genres:** Racing, Arcade  \n\n2. **Virtua Racing**  \n   - **Released:** August 1, 1992  \n   - **Rating:** 4.64/5.0  \n   - **Platforms:** Nintendo Switch, Genesis, SEGA Saturn, and more  \n   - **Genres:** Racing  \n\n3. **POD Gold**  \n   - **Released:** February 27, 1997  \n   - **Rating:** 4.62/5.0  \n   - **Platforms:** PC  \n   - **Genres:** Racing, Arcade  \n\n4. **Midnight Club 3: DUB Edition Remix**  \n   - **Released:** March 13, 2006  \n   - **Rating:** 4.6/5.0  \n   - **Platforms:** Xbox, PlayStation 3, PlayStation 2  \n   - **Genres:** Racing, Arcade  \n\n5. **Project Gotham Racing 2**  \n   - **Released:** November 17, 2003  \n   - **Rating:** 4.57/5.0  \n   - **Platforms:** Xbox  \n   - **Genres:** Racing, Arcade  \n\n6. **SuperTuxKart**  \n   - **Released:** August 6, 2006  \n   - **Rating:** 4.57/5.0  \n   - **Platforms:** PC, Android, macOS, and more  \n   - **Genres:** Racing, Action  \n\n7. **Rush Rally 3**  \n   - **Released:** March 27, 2019  \n   - **Rating:** 4.56/5.0  \n   - **Platforms:** PC, iOS, Android  \n   - **Genres:** Racing, Indie, Simulation, Sports  \n\n8. **Top Gear**  \n   - **Released:** March 27, 1992  \n   - **Rating:** 4.55/5.0  \n   - **Platforms:** SNES  \n   - **Genres:** Racing  \n\n9. **Gran Turismo 4**  \n   - **Released:** December 28, 2004  \n   - **Rating:** 4.48/5.0  \n   - **Platforms:** PlayStation 2  \n   - **Genres:** Racing  \n\n10. **Need for Speed: Most Wanted Black Edition**  \n    - **Released:** August 31, 2015  \n    - **Rating:** 4.46/5.0  \n    - **Platforms:** PC, Xbox, PlayStation 2  \n    - **Genres:** Racing  \n\nThese games should provide a fun racing experience similar to what you enjoy in Mario Kart! If you need more information about any of these titles, just let me know!",
+        "tools_used": [
+            "get_games_by_genre"
+        ]
+    }
+]

@@ -1,32 +1,32 @@
 [
   {
     "role": "user",
-    "content": "Searching games: mariokart",
-    "timestamp": "2025-09-23T13:36:58.470936"
+    "content": "Searching games: mario kart",
+    "timestamp": "2025-09-23T14:32:05.779252"
   },
   {
     "role": "assistant",
-    "content": "Found 1 games for 'mariokart'",
-    "timestamp": "2025-09-23T13:36:59.138726"
+    "content": "Found 5 games for 'mario kart'",
+    "timestamp": "2025-09-23T14:32:06.418810"
   },
   {
     "role": "user",
-    "content": "Searching games: Mario Kart World",
-    "timestamp": "2025-09-23T13:37:26.123952"
+    "content": "Searching games: Mario Kart Wii",
+    "timestamp": "2025-09-23T14:32:31.164578"
   },
   {
     "role": "assistant",
-    "content": "Found 5 games for 'Mario Kart World'",
-    "timestamp": "2025-09-23T13:37:26.644256"
+    "content": "Found 5 games for 'Mario Kart Wii'",
+    "timestamp": "2025-09-23T14:32:33.173676"
   },
   {
     "role": "user",
-    "content": "Getting details for game: Hollow Knight",
-    "timestamp": "2025-09-23T13:38:06.114302"
+    "content": "Searching games by genre: racing",
+    "timestamp": "2025-09-23T14:32:59.577397"
   },
   {
     "role": "assistant",
-    "content": "Retrieved details for 'Hollow Knight'",
-    "timestamp": "2025-09-23T13:38:07.409397"
+    "content": "Found 10 games in 'racing' genre",
+    "timestamp": "2025-09-23T14:33:02.298353"
   }
 ]

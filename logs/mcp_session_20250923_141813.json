@@ -1,0 +1,10 @@
+[
+    {
+        "timestamp": "2025-09-23T14:18:33.119626",
+        "user": "What food can I use to replace orange juice?",
+        "bot": "You can use the following substitutes for orange juice:\n\n1. **Acerola juice** - A tangy fruit juice that is rich in vitamin C.\n2. **Apple juice (frozen concentrate, unsweetened)** - A milder alternative.\n3. **Lemon juice** - Adds a similar acidity and brightness.\n4. **Lime juice** - Another citrusy option with a different flavor profile.\n5. **Pineapple juice (canned, juice pack)** - Offers a sweet and tropical taste.\n6. **Tangerine juice** - A sweeter citrus alternative.\n7. **Mangos (raw)** - Can be blended to create a juice-like consistency.\n8. **Buttermilk** - For a creamy texture in certain recipes.\n9. **Vanilla extract** - If you’re looking for flavor rather than acidity.\n10. **Vinegar (cider)** - Adds acidity, but be cautious with the quantity.\n\nFeel free to choose based on the specific flavor and texture you are looking for in your recipe!",
+        "tools_used": [
+            "suggest_ingredient_substitution"
+        ]
+    }
+]

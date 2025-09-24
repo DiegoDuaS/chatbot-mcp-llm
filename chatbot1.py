@@ -87,6 +87,14 @@ MCP_SERVERS = {
         description="Movie recommendations and information server",
         enabled=True,
         cwd=r"C:\Users\diego\OneDrive\Escritorio\2025\Semestre VIII\Redes\Movies_ChatBot"
+    ),
+    "kitchen_server": MCPServerConfig(
+        name="Kitchen Server",
+        command="node",
+        args=[r'src/mcp-server.js'],
+        description="Server focused on food, nutrition, and recipe suggestions.",
+        enabled=True,
+        cwd=r"C:\Users\diego\OneDrive\Escritorio\2025\Semestre VIII\Redes\kitchen-mcp"
     )
 }
 
@@ -156,10 +164,10 @@ def start_mcp_server(server: MCPServerConfig) -> bool:
         
         # Initialize MCP connection
         if initialize_mcp_server(server):
-            print(f"✅ Started and initialized {server.name} (PID: {server.process.pid})")
+            print(f" Started and initialized {server.name} (PID: {server.process.pid})")
             return True
         else:
-            print(f"❌ Failed to initialize {server.name}")
+            print(f" Failed to initialize {server.name}")
             server.enabled = False
             return False
         
@@ -195,10 +203,10 @@ def initialize_mcp_server(server: MCPServerConfig) -> bool:
         
         response = send_mcp_request_raw(server, init_message, timeout=10)
         if not response or "error" in response:
-            print(f"❌ Error in initialization for {server.name}: {response.get('error') if response else 'No response'}")
+            print(f" Error in initialization for {server.name}: {response.get('error') if response else 'No response'}")
             return False
         
-        print(f"✅ Initialize response from {server.name}: {response.get('result', {}).get('serverInfo', {}).get('name', 'Unknown')}")
+        print(f" Initialize response from {server.name}: {response.get('result', {}).get('serverInfo', {}).get('name', 'Unknown')}")
         
         # 2. Send initialized notification
         initialized_notification = {
@@ -211,11 +219,11 @@ def initialize_mcp_server(server: MCPServerConfig) -> bool:
         send_notification(server, initialized_notification)
         
         server.is_initialized = True
-        print(f"✅ MCP initialization complete for {server.name}")
+        print(f" MCP initialization complete for {server.name}")
         return True
         
     except Exception as e:
-        print(f"❌ Error in MCP initialization for {server.name}: {e}")
+        print(f" Error in MCP initialization for {server.name}: {e}")
         return False
 
 def send_notification(server: MCPServerConfig, notification: dict):
@@ -441,7 +449,8 @@ INSTRUCTIONS:
 - Ask for clarification if you need more information
 - You can combine tools from different servers
 - Always confirm the results of operations
-- Handle errors gracefully and explain what went wrong
+- Handle errors and explain what went wrong
+- If you can't recieve information don't give suposed answers, just say that the tool didn't function or returned anything.
 
 Respond helpfully and professionally."""
     
@@ -669,7 +678,7 @@ def main():
                 
                 save_log(user_input, response, tools_used)
                 
-                print(f"Bot: {response}")
+                print(f"0-[°-°]-0 Bot: {response}")
                 if tools_used:
                     print(f"Tools used: {', '.join(tools_used)}")
                 print()

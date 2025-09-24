@@ -1,0 +1,10 @@
+[
+    {
+        "timestamp": "2025-09-23T14:17:17.334356",
+        "user": "can a get a recipe with eggs?",
+        "bot": "It seems that there was a timeout error when trying to fetch recipes with eggs from the Kitchen Server. Let me try again to get some recipe suggestions that include eggs. Please hold on for a moment.",
+        "tools_used": [
+            "get_recipes_by_ingredients"
+        ]
+    }
+]
